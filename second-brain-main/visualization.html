@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Second Brain — Visualização</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: #0a0a0c; color: rgba(255,255,255,0.92);
+    padding: 40px 24px; min-height: 100vh;
+  }
+  .container { max-width: 1100px; margin: 0 auto; }
+
+  h1 { font-size: 1.8rem; letter-spacing: -0.03em; margin-bottom: 4px; }
+  .sub { color: rgba(255,255,255,0.4); font-size: 0.9rem; margin-bottom: 32px; }
+  .badge { display: inline-block; font-size: 0.7rem; font-weight: 600; background: rgba(99,102,241,0.12); border: 1px solid rgba(99,102,241,0.22); color: #6366f1; padding: 3px 10px; border-radius: 999px; letter-spacing: 0.07em; text-transform: uppercase; margin-bottom: 12px; }
+
+  .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+  @media(max-width:800px){ .grid { grid-template-columns: 1fr; } }
+
+  .card {
+    background: #111115; border: 1px solid rgba(255,255,255,0.08); border-radius: 16px; padding: 20px;
+    transition: border-color 0.2s;
+  }
+  .card:hover { border-color: rgba(255,255,255,0.14); }
+  .card h2 { font-size: 0.8rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(255,255,255,0.38); margin-bottom: 14px; }
+
+  .file-list { list-style: none; }
+  .file-list li {
+    display: flex; align-items: center; gap: 8px; padding: 6px 0;
+    font-size: 0.85rem; color: rgba(255,255,255,0.7);
+  }
+  .file-list li .icon { width: 16px; height: 16px; border-radius: 4px; flex-shrink: 0; }
+  .file-list li .lines { font-size: 0.7rem; color: rgba(255,255,255,0.3); margin-left: auto; }
+  .icon-jsx { background: #6366f1; }
+  .icon-css { background: #38bdf8; }
+  .icon-html { background: #f59e0b; }
+  .icon-json { background: rgba(255,255,255,0.15); }
+
+  .tree { margin-top: 8px; }
+  .tree-node { padding-left: 0; margin: 5px 0; }
+  .tree-node .label { font-size: 0.82rem; color: rgba(255,255,255,0.7); font-weight: 500; }
+  .tree-node .children { padding-left: 20px; border-left: 1px solid rgba(255,255,255,0.06); margin-left: 4px; margin-top: 4px; }
+  .tree-node .children .item { font-size: 0.8rem; color: rgba(255,255,255,0.55); padding: 3px 0; }
+
+  .flow-diagram { padding: 12px 0; }
+  .flow-row { display: flex; align-items: center; gap: 10px; margin: 8px 0; flex-wrap: wrap; }
+  .flow-box {
+    background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px;
+    padding: 10px 14px; font-size: 0.78rem; text-align: center; min-width: 80px;
+  }
+  .flow-box.highlight { border-color: #6366f1; background: rgba(99,102,241,0.1); }
+  .flow-box .f-label { font-weight: 500; color: rgba(255,255,255,0.8); }
+  .flow-box .f-sub { font-size: 0.65rem; color: rgba(255,255,255,0.35); margin-top: 2px; }
+  .flow-arrow { color: rgba(255,255,255,0.2); font-size: 1rem; flex-shrink: 0; }
+
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; margin: 16px 0; font-size: 0.78rem; color: rgba(255,255,255,0.5); }
+  .legend span { display: flex; align-items: center; gap: 6px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+
+  .color-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+  .color-swatch { display: flex; align-items: center; gap: 6px; font-size: 0.78rem; color: rgba(255,255,255,0.6); }
+  .swatch { width: 14px; height: 14px; border-radius: 4px; }
+
+  hr { border: none; border-top: 1px solid rgba(255,255,255,0.06); margin: 24px 0; }
+
+  .schema-grid { display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 0.8rem; margin-top: 8px; }
+  .schema-key { font-family: 'SF Mono', monospace; color: #6366f1; }
+  .schema-type { color: #34d399; font-size: 0.7rem; font-family: 'SF Mono', monospace; }
+  .schema-desc { color: rgba(255,255,255,0.45); grid-column: 2; }
+
+  .meta-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; margin-top: 8px; }
+  .meta-table th, .meta-table td { padding: 6px 10px; text-align: left; border-bottom: 1px solid rgba(255,255,255,0.05); }
+  .meta-table th { color: rgba(255,255,255,0.3); font-weight: 500; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; }
+  .meta-table td { color: rgba(255,255,255,0.65); }
+
+  .full-width { grid-column: 1 / -1; }
+
+  .kbd { display: inline-block; font-family: 'SF Mono', monospace; font-size: 0.7rem; background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.1); border-radius: 4px; padding: 1px 5px; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<div class="badge">Day 28 · 30 Projects</div>
+<h1>Second Brain</h1>
+<p class="sub">Stop losing notes, ideas, links &amp; snippets — capture tudo em um lugar pesquisável</p>
+
+<!-- ARQUITETURA GERAL -->
+<div class="grid">
+
+  <!-- Estrutura de Arquivos -->
+  <div class="card">
+    <h2>📁 Estrutura de Arquivos</h2>
+    <ul class="file-list">
+      <li><span class="icon icon-html"></span> index.html<span class="lines">15 linhas</span></li>
+      <li style="padding-left:24px;"><span class="icon icon-json"></span> vite.config.js<span class="lines">3 linhas</span></li>
+      <li style="padding-left:24px;"><span class="icon icon-json"></span> package.json<span class="lines">19 linhas</span></li>
+      <li style="padding-left:24px;font-size:0.78rem;color:rgba(255,255,255,0.35);">node_modules/ (61 pacotes)</li>
+      <li><span style="display:inline-block;width:16px;"></span> src/<span class="lines"></span></li>
+      <li style="padding-left:24px;"><span class="icon icon-jsx"></span> main.jsx<span class="lines">9 linhas</span></li>
+      <li style="padding-left:24px;"><span class="icon icon-jsx"></span> App.jsx<span class="lines">453 linhas</span></li>
+      <li style="padding-left:24px;"><span class="icon icon-css"></span> styles.css<span class="lines">643 linhas</span></li>
+      <li><span style="display:inline-block;width:16px;"></span> dist/ (build)</li>
+    </ul>
+  </div>
+
+  <!-- Stack -->
+  <div class="card">
+    <h2>⚙️ Stack</h2>
+    <table class="meta-table">
+      <tr><th>Camada</th><th>Escolha</th></tr>
+      <tr><td>Framework</td><td>React 19 + Vite 5</td></tr>
+      <tr><td>Estilização</td><td>Pure CSS + Design Tokens</td></tr>
+      <tr><td>Estado</td><td>useState + useMemo + useCallback</td></tr>
+      <tr><td>Persistência</td><td>localStorage</td></tr>
+      <tr><td>Fontes</td><td>Inter + SF Mono</td></tr>
+    </table>
+  </div>
+
+  <!-- Árvore de Componentes -->
+  <div class="card">
+    <h2>🧩 Árvore de Componentes</h2>
+    <div class="tree">
+      <div class="tree-node">
+        <div class="label">&lt;App&gt; (state + lógica central)</div>
+        <div class="children">
+          <div class="item">└ &lt;header&gt; · sticky, glassmorphism</div>
+          <div class="item">&nbsp;&nbsp;&nbsp;└ Search (⌘K focus)</div>
+          <div class="item">└ &lt;main&gt;</div>
+          <div class="item">&nbsp;&nbsp;&nbsp;└ &lt;QuickAdd&gt; (formulário)</div>
+          <div class="item">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├ TypeSelector (4 pills)</div>
+          <div class="item">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├ Textarea (⌘↵ salvar)</div>
+          <div class="item">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├ URL input (só Link)</div>
+          <div class="item">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└ Tags input + Add btn</div>
+          <div class="item">&nbsp;&nbsp;&nbsp;└ FilterRow (All/Notes/Ideas/Links/Snippets)</div>
+          <div class="item">&nbsp;&nbsp;&nbsp;└ Card Grid (masonry CSS columns)</div>
+          <div class="item">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└ &lt;BrainCard&gt; × N</div>
+          <div class="item">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├ accent bar (3px colorida)</div>
+          <div class="item">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├ content (mono se snippet)</div>
+          <div class="item">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├ URL link (só link type)</div>
+          <div class="item">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;├ tags pills</div>
+          <div class="item">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└ actions: copy · pin · delete</div>
+          <div class="item">&nbsp;&nbsp;&nbsp;└ &lt;IconSearch&gt; · &lt;IconX&gt; · &lt;IconPin&gt;</div>
+          <div class="item">&nbsp;&nbsp;&nbsp;└ &lt;IconTrash&gt; · &lt;IconCopy&gt; · &lt;IconCheck&gt;</div>
+          <div class="item">&nbsp;&nbsp;&nbsp;└ &lt;IconLink&gt; · &lt;IconBrain&gt; (empty state)</div>
+          <div class="item">└ &lt;footer&gt; · créditos</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Data Flow -->
+  <div class="card">
+    <h2>🔄 Data Flow</h2>
+    <div class="flow-diagram">
+      <div class="flow-row">
+        <div class="flow-box highlight"><span class="f-label">User Input</span><span class="f-sub">textarea · type · tags</span></div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box highlight"><span class="f-label">App state</span><span class="f-sub">useState(items)</span></div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box"><span class="f-label">localStorage</span><span class="f-sub">useEffect sync</span></div>
+      </div>
+      <div class="flow-row">
+        <div class="flow-box"><span class="f-label">Search query</span><span class="f-sub">useState(query)</span></div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box highlight"><span class="f-label">useMemo filter</span><span class="f-sub">content · url · tags</span></div>
+        <span class="flow-arrow">→</span>
+        <div class="flow-box"><span class="f-label">Filtered list</span><span class="f-sub">pinned ↑ · recent ↓</span></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- STATE SCHEMA -->
+<div class="card" style="margin-bottom:24px;">
+  <h2>📐 State Schema</h2>
+  <div class="schema-grid">
+    <span class="schema-key">id</span><span class="schema-type">number</span><span class="schema-desc"><code>Date.now()</code></span>
+    <span class="schema-key">type</span><span class="schema-type">'note' | 'idea' | 'link' | 'snippet'</span><span class="schema-desc">Define cor, placeholder, comportamento</span>
+    <span class="schema-key">content</span><span class="schema-type">string</span><span class="schema-desc">Texto do item</span>
+    <span class="schema-key">url</span><span class="schema-type">string</span><span class="schema-desc">Preenchido só se type === 'link'</span>
+    <span class="schema-key">tags</span><span class="schema-type">string[]</span><span class="schema-desc">Virgulados, exibidos como pills</span>
+    <span class="schema-key">pinned</span><span class="schema-type">boolean</span><span class="schema-desc">Fixado no topo</span>
+    <span class="schema-key">createdAt</span><span class="schema-type">timestamp</span><span class="schema-desc">Usado para ordenação</span>
+  </div>
+</div>
+
+<!-- TYPE META + CORES -->
+<div class="grid">
+  <div class="card">
+    <h2>🎨 TYPE_META — 4 tipos</h2>
+    <table class="meta-table">
+      <tr><th>Tipo</th><th>Cor</th><th>Placeholder</th><th>Ícone</th></tr>
+      <tr><td>Note</td><td><span class="dot" style="background:#6366f1"></span> indigo</td><td>Write a note or thought…</td><td>linhas (hamburger)</td></tr>
+      <tr><td>Idea</td><td><span class="dot" style="background:#f59e0b"></span> amber</td><td>Capture an idea…</td><td>lâmpada</td></tr>
+      <tr><td>Link</td><td><span class="dot" style="background:#38bdf8"></span> sky blue</td><td>Describe this link…</td><td>elo (∞)</td></tr>
+      <tr><td>Snippet</td><td><span class="dot" style="background:#34d399"></span> green</td><td>Paste a code or text snippet…</td><td>&lt;&gt; / \</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>⌨️ Shortcuts</h2>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;">
+      <div style="display:flex;align-items:center;gap:10px;font-size:0.82rem;">
+        <span class="kbd">⌘</span><span class="kbd" style="margin-left:-4px;">K</span>
+        <span style="color:rgba(255,255,255,0.5);">Focus search</span>
+      </div>
+      <div style="display:flex;align-items:center;gap:10px;font-size:0.82rem;">
+        <span class="kbd">⌘</span><span class="kbd" style="margin-left:-4px;">↵</span>
+        <span style="color:rgba(255,255,255,0.5);">Salvar item</span>
+      </div>
+    </div>
+    <hr>
+    <h2>📏 Layout</h2>
+    <div style="display:flex;flex-direction:column;gap:4px;font-size:0.82rem;color:rgba(255,255,255,0.55);">
+      <div>Header sticky + <code>backdrop-filter: blur(16px)</code></div>
+      <div>Main: <code>max-width: 960px</code></div>
+      <div>Cards: <code>columns: 2 300px</code> (masonry)</div>
+      <div>≤720px: 1 coluna</div>
+      <div>≤600px: sub + badge escondidos</div>
+    </div>
+  </div>
+</div>
+
+<!-- CARD VISUAL -->
+<div class="card" style="margin-top:24px;">
+  <h2>🃏 Card Anatomy</h2>
+  <div style="display:flex;gap:24px;flex-wrap:wrap;margin-top:8px;">
+    <div style="background:#111115;border:1px solid rgba(255,255,255,0.08);border-radius:16px;overflow:hidden;max-width:320px;flex:1;">
+      <div style="height:3px;background:#6366f1;opacity:0.75;"></div>
+      <div style="padding:14px 16px;display:flex;flex-direction:column;gap:10px;">
+        <div style="font-size:0.9rem;color:rgba(255,255,255,0.7);line-height:1.6;">Minimal second brain app for quick capture</div>
+        <div style="display:flex;gap:5px;flex-wrap:wrap;">
+          <span style="font-size:0.68rem;padding:2px 8px;border-radius:999px;background:rgba(99,102,241,0.12);border:1px solid rgba(99,102,241,0.35);color:#6366f1;">react</span>
+          <span style="font-size:0.68rem;padding:2px 8px;border-radius:999px;background:rgba(56,189,248,0.12);border:1px solid rgba(56,189,248,0.35);color:#38bdf8;">project</span>
+        </div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 16px 12px;border-top:1px solid rgba(255,255,255,0.08);">
+        <div style="display:flex;align-items:center;gap:6px;font-size:0.68rem;color:rgba(255,255,255,0.38);">
+          <span style="width:6px;height:6px;border-radius:50%;background:#6366f1;opacity:0.8;"></span>Note · 2h ago
+        </div>
+        <div style="display:flex;gap:2px;">
+          <span style="width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.38);font-size:10px;">📋</span>
+          <span style="width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.38);font-size:10px;">📌</span>
+          <span style="width:28px;height:28px;border-radius:8px;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.38);font-size:10px;">🗑</span>
+        </div>
+      </div>
+    </div>
+    <div style="flex:1;min-width:200px;">
+      <div style="font-size:0.78rem;color:rgba(255,255,255,0.5);line-height:1.8;">
+        <strong style="color:rgba(255,255,255,0.7);">Card accent:</strong> 3px barra colorida no topo<br>
+        <strong style="color:rgba(255,255,255,0.7);">Content:</strong> <code>white-space: pre-wrap</code>, mono se snippet<br>
+        <strong style="color:rgba(255,255,255,0.7);">URL:</strong> aparece apenas se item.type === 'link'<br>
+        <strong style="color:rgba(255,255,255,0.7);">Tags:</strong> pills com <code>--card-color</code> dinâmico<br>
+        <strong style="color:rgba(255,255,255,0.7);">Footer:</strong> tipo · tempo relativo + actions<br>
+        <strong style="color:rgba(255,255,255,0.7);">Hover:</strong> translateY(-1px) + shadow
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DEPLOY + METADADOS -->
+<div class="grid" style="margin-top:24px;">
+  <div class="card">
+    <h2>🌐 Deploy</h2>
+    <div style="font-size:0.85rem;color:rgba(255,255,255,0.6);">
+      <a href="https://second-brain-three-ashy.vercel.app/" target="_blank" style="color:#6366f1;text-decoration:none;">second-brain-three-ashy.vercel.app</a>
+      <div style="margin-top:8px;font-size:0.78rem;">Vercel · Static SPA</div>
+    </div>
+  </div>
+  <div class="card">
+    <h2>📦 Build</h2>
+    <div style="display:flex;flex-direction:column;gap:4px;font-size:0.82rem;color:rgba(255,255,255,0.55);">
+      <div>CSS: <strong style="color:rgba(255,255,255,0.7);">9.86 kB</strong></div>
+      <div>JS: <strong style="color:rgba(255,255,255,0.7);">204.77 kB</strong></div>
+      <div>Build time: <strong style="color:rgba(255,255,255,0.7);">338ms</strong></div>
+      <div style="margin-top:4px;font-size:0.78rem;">Zero runtime dependencies além de React</div>
+    </div>
+  </div>
+</div>
+
+<div style="text-align:center;margin-top:40px;padding:16px;border-top:1px solid rgba(255,255,255,0.05);font-size:0.75rem;color:rgba(255,255,255,0.25);">
+  Coded by <a href="https://instagram.com/berkindev" target="_blank" style="color:rgba(255,255,255,0.4);text-decoration:none;">berkindev</a>
+</div>
+
+</div>
+</body>
+</html>
