@@ -1,4 +1,4 @@
-# Memory depo
+## Memory depo
 
 Um app pessoal para guardar ideias, notas, links e trechos em um só lugar.
 
