@@ -1,42 +1,32 @@
 ## Memory depo
 
-Um app pessoal para guardar ideias, notas, links e trechos em um só lugar.
-
-Autor: Cesar Delmondes
+Um segundo cérebro pessoal para capturar notas, ideias, links e trechos de forma rápida e visualmente refinada.
 
 ## Live demo:
 https://memorycard-gold.vercel.app/
 
 ## Destaques
 
-- Fundo sutil com a imagem `brain`
-- Interface escura com foco em leitura rápida
-- Busca instantânea e filtro por tipo
+- Interface escura com identidade própria
+- Busca instantânea e filtros por tipo
+- Fixar, copiar, editar, exportar e importar memórias
 - Persistência local com `localStorage`
-- Pronto para Vercel
-
-## O que ele faz
-
-- Cria notas rápidas com um clique
-- Separa conteúdos por tipo: nota, ideia, link e trecho
-- Permite fixar itens importantes
-- Tem busca instantânea
-- Salva tudo no navegador com `localStorage`
+- Pronto para deploy na Vercel
 
 ## Tecnologias
 
-- React
+- React 19
 - Vite
 - CSS puro
 
-## Como rodar localmente
+## Como rodar
 
 ```bash
 npm install
 npm run dev
 ```
 
-## Build para produção
+## Build
 
 ```bash
 npm run build
@@ -44,21 +34,16 @@ npm run build
 
 ## Deploy na Vercel
 
-O projeto já está preparado para Vercel.
+O projeto já está configurado para Vercel.
 
-1. Suba o código para o GitHub.
-2. Importe o repositório na Vercel.
+1. Envie o repositório para o GitHub.
+2. Importe o projeto na Vercel.
 3. Use `npm run vercel-build` como comando de build.
-4. O diretório de saída deve ser `dist`.
+4. Mantenha o diretório de saída como `dist`.
 
-## Personalização
-
-Se quiser mudar textos, nome ou visual, ajuste principalmente:
+## Arquivos principais
 
 - `src/App.jsx`
 - `src/styles.css`
+- `index.html`
 - `public/brain.PNG`
-
-## Licença
-
-Projeto pessoal para uso e adaptação livre.

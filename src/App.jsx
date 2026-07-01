@@ -1,43 +1,96 @@
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import './styles.css'
 
-const STORAGE_KEY = 'memory-depo-v1'
+const STORAGE_KEY = 'memory-depo-v2'
+const LOCALE = 'pt-BR'
 
 const TYPE_META = {
-  note:    { label: 'Nota',    color: '#6366f1', dim: 'rgba(99,102,241,0.12)',  border: 'rgba(99,102,241,0.35)',  placeholder: 'Escreva uma nota ou pensamento…' },
-  idea:    { label: 'Ideia',   color: '#f59e0b', dim: 'rgba(245,158,11,0.12)',  border: 'rgba(245,158,11,0.35)',  placeholder: 'Capture uma ideia…' },
-  link:    { label: 'Link',    color: '#38bdf8', dim: 'rgba(56,189,248,0.12)',  border: 'rgba(56,189,248,0.35)',  placeholder: 'Descreva este link…' },
-  snippet: { label: 'Trecho',  color: '#34d399', dim: 'rgba(52,211,153,0.12)', border: 'rgba(52,211,153,0.35)', placeholder: 'Cole um código ou trecho de texto…' },
+  note: { label: 'Nota', color: '#6366f1', dim: 'rgba(99,102,241,0.12)', border: 'rgba(99,102,241,0.35)', placeholder: 'Escreva uma nota ou pensamento…' },
+  idea: { label: 'Ideia', color: '#f59e0b', dim: 'rgba(245,158,11,0.12)', border: 'rgba(245,158,11,0.35)', placeholder: 'Capture uma ideia…' },
+  link: { label: 'Link', color: '#38bdf8', dim: 'rgba(56,189,248,0.12)', border: 'rgba(56,189,248,0.35)', placeholder: 'Descreva este link…' },
+  snippet: { label: 'Trecho', color: '#34d399', dim: 'rgba(52,211,153,0.12)', border: 'rgba(52,211,153,0.35)', placeholder: 'Cole um código ou trecho de texto…' },
+}
+
+const FILTERS = [
+  { value: 'all', label: 'Tudo' },
+  { value: 'note', label: 'Notas' },
+  { value: 'idea', label: 'Ideias' },
+  { value: 'link', label: 'Links' },
+  { value: 'snippet', label: 'Trechos' },
+]
+
+function createId() {
+  const cryptoObj = globalThis.crypto
+  return cryptoObj?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`
+}
+
+function isValidItem(item) {
+  return item
+    && typeof item === 'object'
+    && (typeof item.id === 'string' || typeof item.id === 'number')
+    && typeof item.type === 'string'
+    && typeof item.content === 'string'
+    && Array.isArray(item.tags)
+    && typeof item.pinned === 'boolean'
+    && typeof item.createdAt === 'number'
+}
+
+function normalizeItems(value) {
+  if (!Array.isArray(value)) return []
+
+  return value
+    .filter(isValidItem)
+    .map(item => ({
+      ...item,
+      id: String(item.id),
+      type: TYPE_META[item.type] ? item.type : 'note',
+      url: typeof item.url === 'string' ? item.url : '',
+      tags: item.tags.filter(tag => typeof tag === 'string'),
+      updatedAt: typeof item.updatedAt === 'number' ? item.updatedAt : item.createdAt,
+    }))
 }
 
 function loadItems() {
-  try { return JSON.parse(localStorage.getItem(STORAGE_KEY)) ?? [] }
-  catch { return [] }
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    return raw ? JSON.parse(raw) : []
+  } catch {
+    return []
+  }
 }
 
 function formatRelative(ts) {
   const diff = Date.now() - ts
+  if (diff < 0) return 'agora'
   if (diff < 60000) return 'agora'
   if (diff < 3600000) return `${Math.floor(diff / 60000)}min atrás`
   if (diff < 86400000) return `${Math.floor(diff / 3600000)}h atrás`
   if (diff < 604800000) return `${Math.floor(diff / 86400000)}d atrás`
-  return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  return new Intl.DateTimeFormat(LOCALE, { month: 'short', day: 'numeric' }).format(new Date(ts))
 }
 
 export default function App() {
-  const [items, setItems] = useState(loadItems)
+  const [items, setItems] = useState(() => normalizeItems(loadItems()))
   const [query, setQuery] = useState('')
   const [filterType, setFilterType] = useState('all')
   const [formType, setFormType] = useState('note')
   const [formContent, setFormContent] = useState('')
   const [formTags, setFormTags] = useState('')
   const [formUrl, setFormUrl] = useState('')
+  const [editingId, setEditingId] = useState(null)
   const [copiedId, setCopiedId] = useState(null)
+  const [status, setStatus] = useState(null)
   const searchRef = useRef(null)
   const textareaRef = useRef(null)
+  const fileInputRef = useRef(null)
+  const statusTimerRef = useRef(null)
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(items))
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(items))
+    } catch {
+      setStatus({ tone: 'error', message: 'Não foi possível salvar localmente no navegador.' })
+    }
   }, [items])
 
   useEffect(() => {
@@ -49,6 +102,16 @@ export default function App() {
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
+  }, [])
+
+  useEffect(() => () => {
+    if (statusTimerRef.current) window.clearTimeout(statusTimerRef.current)
+  }, [])
+
+  const showStatus = useCallback((message, tone = 'info') => {
+    setStatus({ message, tone })
+    if (statusTimerRef.current) window.clearTimeout(statusTimerRef.current)
+    statusTimerRef.current = window.setTimeout(() => setStatus(null), 2600)
   }, [])
 
   const counts = useMemo(() => ({
@@ -73,55 +136,135 @@ export default function App() {
     return result.sort((a, b) => {
       if (a.pinned && !b.pinned) return -1
       if (!a.pinned && b.pinned) return 1
-      return b.createdAt - a.createdAt
+      return (b.updatedAt ?? b.createdAt) - (a.updatedAt ?? a.createdAt)
     })
   }, [items, query, filterType])
 
-  const addItem = useCallback(() => {
-    if (!formContent.trim()) return
-    const tags = formTags.split(',').map(t => t.trim()).filter(Boolean)
-    setItems(prev => [{
-      id: Date.now(),
-      type: formType,
-      content: formContent.trim(),
-      url: formType === 'link' ? formUrl.trim() : '',
-      tags,
-      pinned: false,
-      createdAt: Date.now(),
-    }, ...prev])
+  const resetForm = useCallback(() => {
+    setEditingId(null)
+    setFormType('note')
     setFormContent('')
     setFormTags('')
     setFormUrl('')
+  }, [])
+
+  const addOrUpdateItem = useCallback(() => {
+    if (!formContent.trim()) return
+
+    const tags = formTags.split(',').map(t => t.trim()).filter(Boolean)
+    const now = Date.now()
+    const content = formContent.trim()
+    const url = formType === 'link' ? formUrl.trim() : ''
+
+    if (editingId) {
+      setItems(prev => prev.map(item => (
+        item.id === editingId
+          ? { ...item, type: formType, content, url, tags, updatedAt: now }
+          : item
+      )))
+      showStatus('Memória atualizada.', 'success')
+    } else {
+      setItems(prev => [{
+        id: createId(),
+        type: formType,
+        content,
+        url,
+        tags,
+        pinned: false,
+        createdAt: now,
+        updatedAt: now,
+      }, ...prev])
+      showStatus('Memória adicionada.', 'success')
+    }
+
+    resetForm()
     textareaRef.current?.focus()
-  }, [formType, formContent, formTags, formUrl])
+  }, [editingId, formContent, formTags, formType, formUrl, resetForm, showStatus])
 
   const togglePin = useCallback(id => {
-    setItems(prev => prev.map(i => i.id === id ? { ...i, pinned: !i.pinned } : i))
-  }, [])
+    setItems(prev => prev.map(i => i.id === id ? { ...i, pinned: !i.pinned, updatedAt: Date.now() } : i))
+    showStatus('Status atualizado.', 'success')
+  }, [showStatus])
 
   const deleteItem = useCallback(id => {
+    if (!window.confirm('Excluir esta memória?')) return
     setItems(prev => prev.filter(i => i.id !== id))
-  }, [])
+    if (editingId === id) resetForm()
+    showStatus('Memória excluída.', 'info')
+  }, [editingId, resetForm, showStatus])
 
   const copyItem = useCallback(item => {
     const text = item.url ? `${item.content}\n${item.url}` : item.content
     navigator.clipboard.writeText(text).then(() => {
       setCopiedId(item.id)
-      setTimeout(() => setCopiedId(null), 1500)
+      showStatus('Copiado para a área de transferência.', 'success')
+      window.setTimeout(() => setCopiedId(null), 1500)
+    }).catch(() => {
+      showStatus('Não foi possível copiar automaticamente.', 'error')
     })
-  }, [])
+  }, [showStatus])
+
+  const editItem = useCallback(item => {
+    setEditingId(item.id)
+    setFormType(item.type)
+    setFormContent(item.content)
+    setFormTags(item.tags.join(', '))
+    setFormUrl(item.url ?? '')
+    showStatus('Editando memória.', 'info')
+    textareaRef.current?.focus()
+  }, [showStatus])
+
+  const cancelEdit = useCallback(() => {
+    resetForm()
+    showStatus('Edição cancelada.', 'info')
+  }, [resetForm, showStatus])
+
+  const exportItems = useCallback(() => {
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      app: 'memory depo',
+      version: 2,
+      items,
+    }
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+    const objectUrl = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = objectUrl
+    link.download = `memory-depo-${new Date().toISOString().slice(0, 10)}.json`
+    link.click()
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), 0)
+    showStatus('Exportação concluída.', 'success')
+  }, [items, showStatus])
+
+  const importItems = useCallback(async (event) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+
+    try {
+      const text = await file.text()
+      const parsed = JSON.parse(text)
+      const incoming = normalizeItems(Array.isArray(parsed) ? parsed : parsed.items)
+
+      if (incoming.length === 0) {
+        showStatus('O arquivo não contém memórias válidas.', 'error')
+        return
+      }
+
+      const shouldReplace = window.confirm(`Importar ${incoming.length} memórias? Isso vai substituir os dados atuais.`)
+      if (!shouldReplace) return
+
+      setItems(incoming)
+      resetForm()
+      showStatus('Importação concluída.', 'success')
+    } catch {
+      showStatus('Arquivo inválido. Use um JSON exportado pelo app.', 'error')
+    }
+  }, [resetForm, showStatus])
 
   const pinnedItems = filtered.filter(i => i.pinned)
   const unpinnedItems = filtered.filter(i => !i.pinned)
   const meta = TYPE_META[formType]
-
-  const FILTERS = [
-    { value: 'all', label: 'Tudo', count: counts.all },
-    { value: 'note', label: 'Notas', count: counts.note },
-    { value: 'idea', label: 'Ideias', count: counts.idea },
-    { value: 'link', label: 'Links', count: counts.link },
-    { value: 'snippet', label: 'Trechos', count: counts.snippet },
-  ]
 
   return (
     <div className="app">
@@ -130,7 +273,7 @@ export default function App() {
           <div className="header-left">
             <div>
               <h1 className="header-title">memory depo</h1>
-              <p className="header-sub">Notas, ideias, links & trechos em um espaço silencioso e pessoal</p>
+              <p className="header-sub">Notas, ideias, links e trechos em um espaço silencioso e pessoal</p>
             </div>
           </div>
           <div className="header-right">
@@ -146,7 +289,7 @@ export default function App() {
                 aria-label="Pesquisar"
               />
               {query && (
-                <button className="search-clear" onClick={() => setQuery('')} aria-label="Limpar pesquisa">
+                <button className="search-clear" onClick={() => setQuery('')} aria-label="Limpar pesquisa" type="button">
                   <IconX />
                 </button>
               )}
@@ -156,8 +299,12 @@ export default function App() {
       </header>
 
       <main className="main">
+        {status && (
+          <div className={`status-bar ${status.tone}`} role="status" aria-live="polite">
+            {status.message}
+          </div>
+        )}
 
-        {/* Quick Add */}
         <div className="quick-add" style={{ '--type-color': meta.color, '--type-dim': meta.dim, '--type-border': meta.border }}>
           <div className="type-selector">
             {Object.entries(TYPE_META).map(([value, m]) => (
@@ -166,6 +313,7 @@ export default function App() {
                 className={`type-pill${formType === value ? ' active' : ''}`}
                 style={formType === value ? { background: m.dim, borderColor: m.border, color: m.color } : {}}
                 onClick={() => setFormType(value)}
+                type="button"
               >
                 <TypeIcon type={value} />
                 {m.label}
@@ -179,7 +327,7 @@ export default function App() {
             placeholder={meta.placeholder}
             value={formContent}
             onChange={e => setFormContent(e.target.value)}
-            onKeyDown={e => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') addItem() }}
+            onKeyDown={e => { if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') addOrUpdateItem() }}
             rows={3}
             aria-label="Conteúdo"
           />
@@ -191,7 +339,7 @@ export default function App() {
               placeholder="https://…"
               value={formUrl}
               onChange={e => setFormUrl(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && addItem()}
+              onKeyDown={e => e.key === 'Enter' && addOrUpdateItem()}
               aria-label="URL"
             />
           )}
@@ -200,39 +348,57 @@ export default function App() {
             <input
               type="text"
               className="form-input"
-                placeholder="Tags: design, todo, referência"
+              placeholder="Tags: design, todo, referência"
               value={formTags}
               onChange={e => setFormTags(e.target.value)}
-              onKeyDown={e => e.key === 'Enter' && addItem()}
+              onKeyDown={e => e.key === 'Enter' && addOrUpdateItem()}
               aria-label="Tags"
             />
             <button
               className="btn-primary"
-              onClick={addItem}
+              onClick={addOrUpdateItem}
               disabled={!formContent.trim()}
-              aria-label="Adicionar"
+              aria-label={editingId ? 'Salvar alterações' : 'Adicionar'}
+              type="button"
             >
-              Adicionar
+              {editingId ? 'Salvar alterações' : 'Adicionar'}
               <span className="btn-shortcut">⌘↵</span>
             </button>
           </div>
-        </div>
 
-        {/* Filters */}
-        <div className="filter-row">
-          {FILTERS.map(f => (
-            <button
-              key={f.value}
-              className={`filter-pill${filterType === f.value ? ' active' : ''}`}
-              onClick={() => setFilterType(f.value)}
-            >
-              {f.label}
-              {f.count > 0 && <span className="filter-count">{f.count}</span>}
+          <div className="quick-utility-row">
+            {editingId && (
+              <button className="ghost-btn" onClick={cancelEdit} type="button">
+                Cancelar edição
+              </button>
+            )}
+            <button className="ghost-btn" onClick={exportItems} type="button">
+              Exportar JSON
             </button>
-          ))}
+            <button className="ghost-btn" onClick={() => fileInputRef.current?.click()} type="button">
+              Importar JSON
+            </button>
+            <input ref={fileInputRef} className="visually-hidden" type="file" accept="application/json" onChange={importItems} />
+          </div>
         </div>
 
-        {/* Content */}
+        <div className="filter-row">
+          {FILTERS.map(f => {
+            const count = counts[f.value]
+            return (
+              <button
+                key={f.value}
+                className={`filter-pill${filterType === f.value ? ' active' : ''}`}
+                onClick={() => setFilterType(f.value)}
+                type="button"
+              >
+                {f.label}
+                {count > 0 && <span className="filter-count">{count}</span>}
+              </button>
+            )
+          })}
+        </div>
+
         {filtered.length === 0 ? (
           <div className="empty-state">
             {query ? (
@@ -246,7 +412,7 @@ export default function App() {
                 <div className="empty-icon"><IconBrain /></div>
                 <p className="empty-title">Seu memory depo está vazio</p>
                 <p className="empty-sub">Comece a capturar notas, ideias, links e trechos acima</p>
-                <button className="empty-cta" onClick={() => textareaRef.current?.focus()}>
+                <button className="empty-cta" onClick={() => textareaRef.current?.focus()} type="button">
                   Criar primeira memória
                 </button>
               </>
@@ -262,7 +428,7 @@ export default function App() {
                 </div>
                 <div className="cards-grid">
                   {pinnedItems.map(item => (
-                    <BrainCard key={item.id} item={item} copiedId={copiedId} onPin={togglePin} onDelete={deleteItem} onCopy={copyItem} />
+                    <BrainCard key={item.id} item={item} copiedId={copiedId} onPin={togglePin} onDelete={deleteItem} onCopy={copyItem} onEdit={editItem} />
                   ))}
                 </div>
               </section>
@@ -277,22 +443,22 @@ export default function App() {
                 )}
                 <div className="cards-grid">
                   {unpinnedItems.map(item => (
-                    <BrainCard key={item.id} item={item} copiedId={copiedId} onPin={togglePin} onDelete={deleteItem} onCopy={copyItem} />
+                    <BrainCard key={item.id} item={item} copiedId={copiedId} onPin={togglePin} onDelete={deleteItem} onCopy={copyItem} onEdit={editItem} />
                   ))}
                 </div>
               </section>
             )}
           </>
         )}
-
       </main>
     </div>
   )
 }
 
-function BrainCard({ item, copiedId, onPin, onDelete, onCopy }) {
+function BrainCard({ item, copiedId, onPin, onDelete, onCopy, onEdit }) {
   const meta = TYPE_META[item.type]
   const isCopied = copiedId === item.id
+
   return (
     <div className="brain-card" style={{ '--card-color': meta.color, '--card-dim': meta.dim, '--card-border': meta.border }}>
       <div className="card-accent" />
@@ -315,14 +481,24 @@ function BrainCard({ item, copiedId, onPin, onDelete, onCopy }) {
       <div className="card-footer">
         <span className="card-meta">
           <span className="card-type-dot" style={{ background: meta.color }} />
-          {meta.label} · {formatRelative(item.createdAt)}
+          {meta.label} · {formatRelative(item.updatedAt ?? item.createdAt)}
         </span>
         <div className="card-actions">
+          <button
+            className="card-btn"
+            onClick={() => onEdit(item)}
+            aria-label="Editar"
+            title="Editar"
+            type="button"
+          >
+            <IconEdit />
+          </button>
           <button
             className={`card-btn${isCopied ? ' success' : ''}`}
             onClick={() => onCopy(item)}
             aria-label={isCopied ? 'Copiado' : 'Copiar'}
             title="Copiar"
+            type="button"
           >
             {isCopied ? <IconCheck /> : <IconCopy />}
           </button>
@@ -331,6 +507,7 @@ function BrainCard({ item, copiedId, onPin, onDelete, onCopy }) {
             onClick={() => onPin(item.id)}
             aria-label={item.pinned ? 'Desafixar' : 'Fixar'}
             title={item.pinned ? 'Desafixar' : 'Fixar'}
+            type="button"
           >
             <IconPin />
           </button>
@@ -339,6 +516,7 @@ function BrainCard({ item, copiedId, onPin, onDelete, onCopy }) {
             onClick={() => onDelete(item.id)}
             aria-label="Excluir"
             title="Excluir"
+            type="button"
           >
             <IconTrash />
           </button>
@@ -423,6 +601,15 @@ function IconCheck() {
   return (
     <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
       <path d="M2 7l4 4 6-6" />
+    </svg>
+  )
+}
+
+function IconEdit() {
+  return (
+    <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9.5 2.5l2 2L5 11H3v-2l6.5-6.5z" />
+      <path d="M8.5 3.5l2 2" />
     </svg>
   )
 }
